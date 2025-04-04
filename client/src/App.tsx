@@ -15,6 +15,10 @@ import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import MembersPage from './pages/MembersPage';
 import UserProfilePage from './pages/UserProfilePage';
+import DiscussionsPage from './pages/DiscussionsPage';
+import DiscussionDetailPage from './pages/DiscussionDetailPage';
+import CreateDiscussionPage from './pages/CreateDiscussionPage';
+import EditDiscussionPage from './pages/EditDiscussionPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './context/AuthContext';
@@ -64,6 +68,27 @@ const App = () => {
                         </ProtectedRoute>
                       } 
                     />
+
+                    {/* Discussion Routes */}
+                    <Route path="/discussions" element={<DiscussionsPage />} />
+                    <Route path="/discussions/:id" element={<DiscussionDetailPage />} />
+                    <Route 
+                      path="/discussions/create" 
+                      element={
+                        <ProtectedRoute>
+                          <CreateDiscussionPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route 
+                      path="/discussions/:id/edit" 
+                      element={
+                        <ProtectedRoute>
+                          <EditDiscussionPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    
                     <Route 
                       path="/profile" 
                       element={

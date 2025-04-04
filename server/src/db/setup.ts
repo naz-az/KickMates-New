@@ -48,11 +48,43 @@ db.serialize(() => {
     )
   `);
 
+  // Discussions table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS discussions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      creator_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      category TEXT NOT NULL,
+      votes_up INTEGER DEFAULT 0,
+      votes_down INTEGER DEFAULT 0,
+      image_url TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (creator_id) REFERENCES users (id)
+    )
+  `);
+
+  // Discussion votes table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS discussion_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      discussion_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      vote_type TEXT CHECK( vote_type IN ('up', 'down') ) NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (discussion_id) REFERENCES discussions (id),
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      UNIQUE (discussion_id, user_id)
+    )
+  `);
+
   // Comments table
   db.run(`
     CREATE TABLE IF NOT EXISTS comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      event_id INTEGER NOT NULL,
+      event_id INTEGER DEFAULT NULL,
+      discussion_id INTEGER DEFAULT NULL,
       user_id INTEGER NOT NULL,
       parent_comment_id INTEGER DEFAULT NULL,
       content TEXT NOT NULL,
@@ -61,8 +93,10 @@ db.serialize(() => {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (event_id) REFERENCES events (id),
+      FOREIGN KEY (discussion_id) REFERENCES discussions (id),
       FOREIGN KEY (user_id) REFERENCES users (id),
-      FOREIGN KEY (parent_comment_id) REFERENCES comments (id)
+      FOREIGN KEY (parent_comment_id) REFERENCES comments (id),
+      CHECK ((event_id IS NULL AND discussion_id IS NOT NULL) OR (event_id IS NOT NULL AND discussion_id IS NULL))
     )
   `);
 
@@ -112,7 +146,7 @@ db.serialize(() => {
     CREATE TABLE IF NOT EXISTS notifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      type TEXT CHECK( type IN ('event_invite', 'event_update', 'event_reminder', 'comment', 'join_request', 'join_accepted', 'system') ) NOT NULL,
+      type TEXT CHECK( type IN ('event_invite', 'event_update', 'event_reminder', 'comment', 'join_request', 'join_accepted', 'system', 'discussion_comment') ) NOT NULL,
       content TEXT NOT NULL,
       related_id INTEGER,
       is_read BOOLEAN DEFAULT 0,
@@ -151,9 +185,13 @@ db.serialize(() => {
       sender_id INTEGER NOT NULL,
       content TEXT NOT NULL,
       is_read BOOLEAN DEFAULT 0,
+      reply_to_id INTEGER NULL,
+      reply_to_content TEXT NULL,
+      reply_to_sender TEXT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (conversation_id) REFERENCES conversations (id),
-      FOREIGN KEY (sender_id) REFERENCES users (id)
+      FOREIGN KEY (sender_id) REFERENCES users (id),
+      FOREIGN KEY (reply_to_id) REFERENCES messages (id)
     )
   `);
 

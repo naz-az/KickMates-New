@@ -240,12 +240,80 @@ export const getMessages = (conversationId: string | number) => {
   return api.get(`/messages/conversations/${conversationId}/messages`);
 };
 
-export const sendMessage = (conversationId: string | number, content: string) => {
-  return api.post(`/messages/conversations/${conversationId}/messages`, { content });
+export const sendMessage = (conversationId: string | number, content: string, replyToId?: number | null) => {
+  return api.post(`/messages/conversations/${conversationId}/messages`, { 
+    content,
+    replyToId: replyToId || null
+  });
+};
+
+export const likeMessage = (conversationId: string | number, messageId: number) => {
+  return api.post(`/messages/conversations/${conversationId}/messages/${messageId}/like`);
+};
+
+export const unlikeMessage = (conversationId: string | number, messageId: number) => {
+  return api.delete(`/messages/conversations/${conversationId}/messages/${messageId}/like`);
+};
+
+export const deleteMessage = (conversationId: string | number, messageId: number) => {
+  return api.delete(`/messages/conversations/${conversationId}/messages/${messageId}`);
 };
 
 export const createConversation = (participantIds: number[]) => {
   return api.post('/messages/conversations', { participantIds });
+};
+
+// Discussions API
+export const getDiscussions = (params?: Record<string, string | number | boolean>): Promise<AxiosResponse<any>> => {
+  return api.get('/discussions', { params });
+};
+
+export const getDiscussionById = (id: string): Promise<AxiosResponse<any>> => {
+  return api.get(`/discussions/${id}`);
+};
+
+export const createDiscussion = (discussionData: {
+  title: string;
+  content: string;
+  category: string;
+  image_url?: string;
+}): Promise<AxiosResponse<any>> => {
+  return api.post('/discussions', discussionData);
+};
+
+export const updateDiscussion = (id: string, discussionData: Record<string, unknown>): Promise<AxiosResponse<any>> => {
+  return api.put(`/discussions/${id}`, discussionData);
+};
+
+export const deleteDiscussion = (id: string): Promise<AxiosResponse<any>> => {
+  return api.delete(`/discussions/${id}`);
+};
+
+export const voteDiscussion = (id: string, voteType: 'up' | 'down'): Promise<AxiosResponse<any>> => {
+  return api.post(`/discussions/${id}/vote`, { voteType });
+};
+
+export const addDiscussionComment = (id: string, content: string, parentCommentId?: number): Promise<AxiosResponse<any>> => {
+  return api.post(`/discussions/${id}/comments`, { content, parentCommentId });
+};
+
+export const deleteDiscussionComment = (discussionId: string, commentId: string): Promise<AxiosResponse<any>> => {
+  return api.delete(`/discussions/${discussionId}/comments/${commentId}`);
+};
+
+export const voteDiscussionComment = (discussionId: string, commentId: string, voteType: 'up' | 'down'): Promise<AxiosResponse<any>> => {
+  return api.post(`/discussions/${discussionId}/comments/${commentId}/vote`, { voteType });
+};
+
+export const uploadDiscussionImage = (discussionId: string | number, file: File): Promise<AxiosResponse<{ discussion: any }>> => {
+  const formData = new FormData();
+  formData.append('discussionImage', file);
+  
+  return api.post(`/discussions/${discussionId}/upload-image`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
 };
 
 export default api; 

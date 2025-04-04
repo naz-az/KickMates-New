@@ -4,7 +4,8 @@ import {
   getMessages, 
   sendMessage, 
   createConversation,
-  getConversation
+  getConversation,
+  deleteMessage
 } from '../controllers/messageController';
 import { authenticate } from '../middlewares/auth';
 
@@ -27,5 +28,8 @@ router.get('/conversations/:conversationId/messages', getMessages as RequestHand
 
 // Send a message to a conversation
 router.post('/conversations/:conversationId/messages', sendMessage as RequestHandler);
+
+// Delete a message from a conversation (only owner can delete)
+router.delete('/conversations/:conversationId/messages/:messageId', deleteMessage as RequestHandler);
 
 export default router; 

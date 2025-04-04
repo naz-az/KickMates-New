@@ -136,6 +136,9 @@ export const getMessages = async (req: Request, res: Response) => {
         m.content, 
         m.is_read, 
         m.created_at,
+        m.reply_to_id,
+        m.reply_to_content,
+        m.reply_to_sender,
         u.username as sender_username,
         u.full_name as sender_name,
         u.profile_image as sender_profile_image
@@ -144,6 +147,9 @@ export const getMessages = async (req: Request, res: Response) => {
       WHERE m.conversation_id = ?
       ORDER BY m.created_at ASC
     `, [conversationId]);
+
+    // Log the raw messages retrieved from DB
+    console.log('Raw messages fetched from DB:', messages);
 
     // Mark messages as read
     await runAsync(`
@@ -177,6 +183,9 @@ export const getMessages = async (req: Request, res: Response) => {
         content: message.content,
         isRead: Boolean(message.is_read),
         createdAt: message.created_at,
+        replyToId: message.reply_to_id,
+        replyToContent: message.reply_to_content,
+        replyToSender: message.reply_to_sender,
         time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         date: dateGroup
       };
@@ -194,7 +203,7 @@ export const sendMessage = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
     const { conversationId } = req.params;
-    const { content } = req.body;
+    const { content, replyToId } = req.body;
 
     if (!content || !content.trim()) {
       return res.status(400).json({ message: 'Message content is required' });
@@ -209,12 +218,44 @@ export const sendMessage = async (req: Request, res: Response) => {
     if (!participant) {
       return res.status(403).json({ message: 'You are not a participant in this conversation' });
     }
+    
+    // Fetch reply context if replyToId is provided
+    let replyToContent: string | null = null;
+    let replyToSender: string | null = null;
+    
+    if (replyToId) {
+      const originalMessage = await getAsync(`
+        SELECT m.content, u.full_name as senderName
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.id = ? AND m.conversation_id = ?
+      `, [replyToId, conversationId]);
+      
+      if (originalMessage) {
+        replyToContent = originalMessage.content;
+        replyToSender = originalMessage.senderName;
+      } else {
+        console.warn(`Original message for reply (ID: ${replyToId}) not found or not in the same conversation.`);
+        // Optionally, you might want to prevent sending the reply if the original message isn't found
+        // return res.status(404).json({ message: 'Original message for reply not found' });
+      }
+    }
 
-    // Insert message
+    // Log the values being inserted
+    console.log('Inserting message with reply context:', {
+      conversationId,
+      userId,
+      content: content.trim(),
+      replyToId: replyToId || null,
+      replyToContent,
+      replyToSender
+    });
+
+    // Insert message with reply context
     const result = await runAsync(`
-      INSERT INTO messages (conversation_id, sender_id, content)
-      VALUES (?, ?, ?)
-    `, [conversationId, userId, content.trim()]);
+      INSERT INTO messages (conversation_id, sender_id, content, reply_to_id, reply_to_content, reply_to_sender)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [conversationId, userId, content.trim(), replyToId || null, replyToContent, replyToSender]);
 
     // Update conversation updated_at timestamp
     await runAsync(`
@@ -231,6 +272,9 @@ export const sendMessage = async (req: Request, res: Response) => {
         m.content, 
         m.is_read, 
         m.created_at,
+        m.reply_to_id,
+        m.reply_to_content,
+        m.reply_to_sender,
         u.username as sender_username,
         u.full_name as sender_name,
         u.profile_image as sender_profile_image
@@ -252,6 +296,9 @@ export const sendMessage = async (req: Request, res: Response) => {
       content: message.content,
       isRead: Boolean(message.is_read),
       createdAt: message.created_at,
+      replyToId: message.reply_to_id,
+      replyToContent: message.reply_to_content,
+      replyToSender: message.reply_to_sender,
       time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       date: 'Today'
     };
@@ -383,5 +430,50 @@ export const getConversation = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error getting conversation details:', error);
     res.status(500).json({ message: 'Server error while fetching conversation details' });
+  }
+};
+
+// Delete a message
+export const deleteMessage = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const { conversationId, messageId } = req.params;
+
+    // First verify the user is a participant in this conversation
+    const participant = await getAsync(`
+      SELECT * FROM conversation_participants
+      WHERE conversation_id = ? AND user_id = ?
+    `, [conversationId, userId]);
+
+    if (!participant) {
+      return res.status(403).json({ message: 'You are not a participant in this conversation' });
+    }
+
+    // Check if the message exists and belongs to the user
+    const message = await getAsync(`
+      SELECT * FROM messages
+      WHERE id = ? AND conversation_id = ?
+    `, [messageId, conversationId]);
+
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    // Verify the user is the sender of the message
+    if (message.sender_id !== userId) {
+      return res.status(403).json({ message: 'You can only delete your own messages' });
+    }
+
+    // Delete the message
+    await runAsync(`
+      DELETE FROM messages
+      WHERE id = ? AND sender_id = ?
+    `, [messageId, userId]);
+
+    // Return success
+    res.json({ message: 'Message deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ message: 'Server error while deleting message' });
   }
 }; 

@@ -18,6 +18,27 @@ async function seedDatabase() {
   console.log('Seeding database...');
 
   try {
+    // Clean up existing data - disable foreign keys
+    await runAsync('PRAGMA foreign_keys = OFF');
+    
+    await runAsync('DELETE FROM messages');
+    await runAsync('DELETE FROM conversation_participants');
+    await runAsync('DELETE FROM conversations');
+    await runAsync('DELETE FROM notifications');
+    await runAsync('DELETE FROM comment_votes');
+    await runAsync('DELETE FROM discussion_votes');
+    await runAsync('DELETE FROM comments');
+    await runAsync('DELETE FROM bookmarks');
+    await runAsync('DELETE FROM participants');
+    await runAsync('DELETE FROM discussions');
+    await runAsync('DELETE FROM events');
+    await runAsync('DELETE FROM users');
+    
+    // Re-enable foreign keys
+    await runAsync('PRAGMA foreign_keys = ON');
+    
+    console.log('✅ Cleared existing data');
+
     // Hash passwords
     const password1 = await hashPassword('password123');
     const password2 = await hashPassword('password456');
@@ -1180,7 +1201,470 @@ async function seedDatabase() {
     }
     console.log('✅ Conversation timestamps updated');
 
-    console.log('Database seeded successfully!');
+    // Insert dashboard related data
+    try {
+      // Create dashboard_courses table
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS dashboard_courses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          instructor TEXT NOT NULL,
+          instructor_avatar TEXT NOT NULL,
+          level TEXT NOT NULL,
+          rating REAL NOT NULL,
+          attendees INTEGER NOT NULL,
+          image_url TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create user_courses table
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS user_courses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          sessions_completed INTEGER NOT NULL,
+          total_sessions INTEGER NOT NULL,
+          image_url TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+      `);
+
+      // Create course_participants table
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS course_participants (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          course_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (course_id) REFERENCES user_courses (id),
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+      `);
+
+      // Create user_statistics table
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS user_statistics (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          score INTEGER NOT NULL,
+          score_change TEXT NOT NULL,
+          completed_hours INTEGER NOT NULL,
+          completed_hours_change TEXT NOT NULL,
+          total_students INTEGER NOT NULL,
+          total_students_change TEXT NOT NULL,
+          total_hours INTEGER NOT NULL,
+          total_hours_change TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+      `);
+
+      // Create productivity_data table
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS productivity_data (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          day TEXT NOT NULL,
+          mentoring INTEGER NOT NULL,
+          self_improve INTEGER NOT NULL,
+          student INTEGER NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+      `);
+
+      // Create upcoming_events table
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS upcoming_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          type TEXT NOT NULL,
+          event_date TEXT NOT NULL,
+          event_time TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+      `);
+
+      // Seed dashboard_courses
+      const dashboardCourses = [
+        {
+          title: 'Three-month Course to Learn the Basics of Soccer and Start Playing',
+          instructor: 'Alison Walsh',
+          instructor_avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2',
+          level: 'Beginner',
+          rating: 5.0,
+          attendees: 118,
+          image_url: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55'
+        },
+        {
+          title: 'Beginner\'s Guide to Team Sports: Basketball & More',
+          instructor: 'Patty Kutch',
+          instructor_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
+          level: 'Beginner',
+          rating: 4.8,
+          attendees: 234,
+          image_url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc'
+        },
+        {
+          title: 'Introduction: Proper Training Techniques and Practice',
+          instructor: 'Alonzo Murray',
+          instructor_avatar: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5',
+          level: 'Intermediate',
+          rating: 4.9,
+          attendees: 57,
+          image_url: 'https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b'
+        },
+        {
+          title: 'Advanced Training Methods and Techniques',
+          instructor: 'Gregory Harris',
+          instructor_avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e',
+          level: 'Advanced',
+          rating: 5.0,
+          attendees: 19,
+          image_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9'
+        }
+      ];
+
+      for (const course of dashboardCourses) {
+        await runAsync(
+          `INSERT INTO dashboard_courses (
+            title, instructor, instructor_avatar, level, rating, attendees, image_url
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            course.title,
+            course.instructor,
+            course.instructor_avatar,
+            course.level,
+            course.rating,
+            course.attendees,
+            course.image_url
+          ]
+        );
+      }
+      console.log('✅ Dashboard courses created');
+
+      // Seed user_courses for user 1
+      const userCourses = [
+        {
+          user_id: 1,
+          title: 'Football Training',
+          sessions_completed: 9,
+          total_sessions: 12,
+          image_url: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55'
+        },
+        {
+          user_id: 1,
+          title: 'Basketball Skills',
+          sessions_completed: 16,
+          total_sessions: 24,
+          image_url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc'
+        },
+        {
+          user_id: 1,
+          title: 'Training Techniques',
+          sessions_completed: 11,
+          total_sessions: 18,
+          image_url: 'https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b'
+        },
+        {
+          user_id: 1,
+          title: 'Team Development',
+          sessions_completed: 18,
+          total_sessions: 37,
+          image_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9'
+        }
+      ];
+
+      for (const course of userCourses) {
+        const result = await runAsync(
+          `INSERT INTO user_courses (
+            user_id, title, sessions_completed, total_sessions, image_url
+          ) VALUES (?, ?, ?, ?, ?)`,
+          [
+            course.user_id,
+            course.title,
+            course.sessions_completed,
+            course.total_sessions,
+            course.image_url
+          ]
+        );
+        
+        // Add participants to each course
+        const participants = [1, 2, 3, 4, 5, 6].slice(0, Math.floor(Math.random() * 3) + 3);
+        
+        for (const participant of participants) {
+          await runAsync(
+            `INSERT INTO course_participants (course_id, user_id) VALUES (?, ?)`,
+            [result.lastID, participant]
+          );
+        }
+      }
+      console.log('✅ User courses and participants created');
+
+      // Seed user_statistics for user 1
+      await runAsync(
+        `INSERT INTO user_statistics (
+          user_id, score, score_change, completed_hours, completed_hours_change,
+          total_students, total_students_change, total_hours, total_hours_change
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [1, 210, '+15%', 34, '+15%', 17, '-2%', 11, '-9%']
+      );
+      console.log('✅ User statistics created');
+
+      // Seed productivity_data for user 1
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const mentoring = [25, 75, 25, 25, 25, 0, 25];
+      const selfImprove = [50, 90, 50, 50, 50, 25, 50];
+      const student = [75, 90, 75, 75, 75, 50, 90];
+
+      for (let i = 0; i < days.length; i++) {
+        await runAsync(
+          `INSERT INTO productivity_data (
+            user_id, day, mentoring, self_improve, student
+          ) VALUES (?, ?, ?, ?, ?)`,
+          [1, days[i], mentoring[i], selfImprove[i], student[i]]
+        );
+      }
+      console.log('✅ Productivity data created');
+
+      // Seed upcoming_events for user 1
+      const upcomingEvents = [
+        {
+          user_id: 1,
+          title: 'Business Prospect Analysis',
+          type: 'Course',
+          event_date: 'April 25',
+          event_time: '11:00-12:00'
+        },
+        {
+          user_id: 1,
+          title: 'AI & Virtual Reality: Intro',
+          type: 'Tutoring',
+          event_date: 'April 27',
+          event_time: '14:30-15:30'
+        }
+      ];
+
+      for (const event of upcomingEvents) {
+        await runAsync(
+          `INSERT INTO upcoming_events (
+            user_id, title, type, event_date, event_time
+          ) VALUES (?, ?, ?, ?, ?)`,
+          [
+            event.user_id,
+            event.title,
+            event.type,
+            event.event_date,
+            event.event_time
+          ]
+        );
+      }
+      console.log('✅ Upcoming events created');
+      
+      // Insert discussions
+      const discussions = [
+        {
+          title: 'Best basketball shoes for outdoor courts?',
+          content: 'I\'ve been playing outdoor basketball a lot lately and my shoes are starting to fall apart. What are your recommendations for durable outdoor basketball shoes with good grip and ankle support?',
+          category: 'Basketball',
+          creator_id: 1,
+          votes_up: 15,
+          votes_down: 2,
+          image_url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc'
+        },
+        {
+          title: 'Running group meetups in downtown area',
+          content: 'Hey runners! I\'m looking to start a regular running group in the downtown area. Thinking of meeting 3 times a week (Mon/Wed/Fri) around 6pm for a 5K run. Would anyone be interested in joining? Let me know what you think about the schedule too.',
+          category: 'Running',
+          creator_id: 2,
+          votes_up: 23,
+          votes_down: 0,
+          image_url: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5'
+        },
+        {
+          title: 'Tennis court conditions after the rain',
+          content: 'Has anyone checked out the public tennis courts at Central Park after all the rain we got this week? Wondering if they\'re playable yet or still too wet. Planning to play this weekend.',
+          category: 'Tennis',
+          creator_id: 3,
+          votes_up: 8,
+          votes_down: 1,
+          image_url: null
+        },
+        {
+          title: 'Advice for first-time marathon training',
+          content: 'I just signed up for my first marathon (happening in 4 months) and I\'m looking for training advice. Any recommended training plans, nutrition tips, or gear suggestions would be greatly appreciated!',
+          category: 'Running',
+          creator_id: 1,
+          votes_up: 31,
+          votes_down: 3,
+          image_url: 'https://images.unsplash.com/photo-1516731415730-0c607149933a?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
+        },
+        {
+          title: 'Where to play soccer on weekday evenings?',
+          content: 'Just moved to the area and looking for places to play soccer on weekday evenings. Ideally looking for pickup games or casual leagues where I can join as an individual player. Any suggestions?',
+          category: 'Soccer',
+          creator_id: 2,
+          votes_up: 12,
+          votes_down: 0,
+          image_url: null
+        }
+      ];
+
+      // Insert discussions
+      for (const discussion of discussions) {
+        await runAsync(
+          `INSERT INTO discussions (title, content, category, creator_id, votes_up, votes_down, image_url)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [discussion.title, discussion.content, discussion.category, discussion.creator_id, 
+           discussion.votes_up, discussion.votes_down, discussion.image_url]
+        );
+      }
+      console.log('✅ Sample discussions created');
+
+      // Insert discussion votes
+      const discussionVotes = [
+        { discussion_id: 1, user_id: 2, vote_type: 'up' },
+        { discussion_id: 1, user_id: 3, vote_type: 'up' },
+        { discussion_id: 2, user_id: 1, vote_type: 'up' },
+        { discussion_id: 2, user_id: 3, vote_type: 'up' },
+        { discussion_id: 3, user_id: 1, vote_type: 'up' },
+        { discussion_id: 3, user_id: 2, vote_type: 'down' },
+        { discussion_id: 4, user_id: 2, vote_type: 'up' },
+        { discussion_id: 4, user_id: 3, vote_type: 'up' },
+        { discussion_id: 5, user_id: 1, vote_type: 'up' },
+        { discussion_id: 5, user_id: 3, vote_type: 'up' }
+      ];
+
+      for (const vote of discussionVotes) {
+        await runAsync(
+          `INSERT INTO discussion_votes (discussion_id, user_id, vote_type)
+          VALUES (?, ?, ?)`,
+          [vote.discussion_id, vote.user_id, vote.vote_type]
+        );
+      }
+      console.log('✅ Sample discussion votes created');
+
+      // Insert discussion comments
+      const discussionComments = [
+        {
+          discussion_id: 1,
+          user_id: 2,
+          content: 'I really like the Nike Lebron Witness series for outdoor courts. They\'re durable and have great traction.',
+          parent_comment_id: null,
+          thumbs_up: 5,
+          thumbs_down: 0
+        },
+        {
+          discussion_id: 1,
+          user_id: 3,
+          content: 'Adidas Dame series is also great for outdoors. More affordable than some other options and last a long time.',
+          parent_comment_id: null,
+          thumbs_up: 3,
+          thumbs_down: 1
+        },
+        {
+          discussion_id: 1,
+          user_id: 1,
+          content: 'Thanks for the suggestion! Have you tried the latest Dame model?',
+          parent_comment_id: 2,
+          thumbs_up: 1,
+          thumbs_down: 0
+        },
+        {
+          discussion_id: 1,
+          user_id: 3,
+          content: 'Yes, I have the Dame 8 and they\'re great. Very comfortable and the traction is excellent even on dusty courts.',
+          parent_comment_id: 3,
+          thumbs_up: 2,
+          thumbs_down: 0
+        },
+        {
+          discussion_id: 2,
+          user_id: 1,
+          content: 'This sounds great! I\'d definitely be interested in joining. The schedule works perfect for me.',
+          parent_comment_id: null,
+          thumbs_up: 2,
+          thumbs_down: 0
+        },
+        {
+          discussion_id: 2,
+          user_id: 3,
+          content: 'I could join on Mondays and Fridays, but Wednesdays are tough for me. Would you consider a Tuesday instead?',
+          parent_comment_id: null,
+          thumbs_up: 1,
+          thumbs_down: 0
+        },
+        {
+          discussion_id: 2,
+          user_id: 2,
+          content: 'Tuesday could work! Let\'s see what others think as well.',
+          parent_comment_id: 6,
+          thumbs_up: 1,
+          thumbs_down: 0
+        },
+        {
+          discussion_id: 3,
+          user_id: 1,
+          content: 'I was there yesterday and the courts were still quite wet. They might be okay by Sunday, but I\'d avoid Saturday if possible.',
+          parent_comment_id: null,
+          thumbs_up: 4,
+          thumbs_down: 0
+        },
+        {
+          discussion_id: 4,
+          user_id: 2,
+          content: 'Hal Higdon has some great beginner marathon training plans. I used his Novice 1 plan for my first marathon and it worked really well!',
+          parent_comment_id: null,
+          thumbs_up: 7,
+          thumbs_down: 0
+        },
+        {
+          discussion_id: 4,
+          user_id: 3,
+          content: 'For nutrition, make sure you practice your race-day fueling during your long runs. Don\'t try anything new on race day!',
+          parent_comment_id: null,
+          thumbs_up: 5,
+          thumbs_down: 0
+        },
+        {
+          discussion_id: 4,
+          user_id: 1,
+          content: 'Thanks for the tips! What kind of gels or fuel do you recommend?',
+          parent_comment_id: 10,
+          thumbs_up: 1,
+          thumbs_down: 0
+        },
+        {
+          discussion_id: 5,
+          user_id: 3,
+          content: 'Check out Riverfront Park on Tuesday and Thursday evenings. There\'s a regular pickup game that starts around 6:30pm.',
+          parent_comment_id: null,
+          thumbs_up: 2,
+          thumbs_down: 0
+        }
+      ];
+
+      for (const comment of discussionComments) {
+        await runAsync(
+          `INSERT INTO comments (discussion_id, user_id, content, parent_comment_id, thumbs_up, thumbs_down)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+          [comment.discussion_id, comment.user_id, comment.content, 
+           comment.parent_comment_id, comment.thumbs_up, comment.thumbs_down]
+        );
+      }
+      console.log('✅ Sample discussion comments created');
+
+    } catch (error) {
+      console.error('Error seeding dashboard data:', error);
+    }
+
+    console.log('Database seeding completed successfully!');
+    process.exit(0);
   } catch (error) {
     console.error('❌ Error seeding database:', error);
   } finally {

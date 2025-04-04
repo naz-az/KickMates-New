@@ -16,7 +16,7 @@
   }
   
   a {
-    @apply text-primary hover:underline cursor-pointer;
+    @apply text-primary hover:text-primary-dark cursor-pointer;
   }
   
   button {
@@ -236,7 +236,7 @@
   }
 
   .message-group {
-    @apply flex flex-col;
+    @apply flex flex-col w-full;
   }
 
   .message-bubble {
@@ -244,11 +244,28 @@
   }
 
   .message-incoming {
-    @apply bg-white text-text-dark self-start rounded-tl-none shadow-sm;
+    @apply bg-white text-text-dark rounded-tl-none shadow-sm;
   }
 
   .message-outgoing {
-    @apply bg-primary text-white self-end rounded-tr-none;
+    @apply bg-primary text-white rounded-tr-none;
+  }
+
+  /* Fix for message alignment */
+  .message-container {
+    @apply w-full flex mb-4;
+  }
+  
+  .message-container-inner {
+    @apply flex w-full;
+  }
+  
+  .message-container-inner.outgoing {
+    @apply justify-end;
+  }
+  
+  .message-container-inner.incoming {
+    @apply justify-start;
   }
 
   .message-time {
@@ -344,7 +361,7 @@
   }
 
   .view-all {
-    @apply text-primary font-medium hover:text-primary-dark transition-colors;
+    @apply text-primary font-medium hover:text-primary-dark transition-colors hover:no-underline;
   }
 
   .events-grid {
@@ -401,7 +418,7 @@
   }
 
   .view-details {
-    @apply text-xs text-primary font-medium hover:text-primary-dark;
+    @apply text-xs text-primary font-medium hover:text-primary-dark hover:no-underline;
   }
 
   /* Loading and Error States */
@@ -758,7 +775,7 @@
   }
 
   .comment-reply-btn {
-    @apply text-xs text-text-light hover:text-primary transition-colors py-1 px-2 rounded-md hover:bg-gray-100;
+    @apply text-xs text-text-light hover:text-primary transition-colors py-1 px-2 rounded-md hover:bg-gray-100 hover:no-underline;
   }
 
   .comment-votes {
@@ -766,7 +783,7 @@
   }
 
   .vote-btn {
-    @apply flex items-center gap-1 text-text-light transition-colors hover:text-primary;
+    @apply flex items-center gap-1 text-text-light transition-colors hover:text-primary hover:no-underline;
   }
 
   .vote-btn.active {
@@ -806,7 +823,7 @@
   }
 
   .delete-comment {
-    @apply absolute top-3 right-3 text-lg w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:text-error hover:bg-error/10 transition-colors;
+    @apply absolute top-3 right-3 text-lg w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:text-error hover:bg-error/10 transition-colors hover:no-underline;
   }
 
   /* End of Comment Styling */
@@ -881,7 +898,7 @@
   }
 
   .remove-image-btn {
-    @apply text-sm text-red-600 hover:text-red-800 hover:underline;
+    @apply text-sm text-red-600 hover:text-red-800 hover:no-underline;
   }
 
   .sidebar-nav {

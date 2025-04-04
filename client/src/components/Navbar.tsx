@@ -117,7 +117,7 @@ const Navbar = () => {
               </div>
             ) : (
               <div className="flex flex-col gap-2 p-4 border-t border-gray-100">
-                <Link to="/login" className="text-primary font-medium py-2 text-center hover:underline">
+                <Link to="/login" className="text-primary font-medium py-2 text-center hover:text-primary-dark transition-colors">
                   Login
                 </Link>
                 <Link to="/register" className="bg-primary text-white py-2 px-4 rounded-md text-center font-medium hover:bg-primary-dark transition-colors">
