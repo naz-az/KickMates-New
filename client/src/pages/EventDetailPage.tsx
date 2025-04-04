@@ -21,13 +21,13 @@ const EventDetailPage = () => {
   const [commentsSort, setCommentsSort] = useState<'newest' | 'oldest'>('newest');
   const [commentPage, setCommentPage] = useState(1);
   const commentsPerPage = 5;
+  const [replyToComment, setReplyToComment] = useState<{id: number, username: string} | null>(null);
 
   useEffect(() => {
     fetchEventDetails();
   }, [id]);
 
   const fetchEventDetails = async () => {
-    setIsLoading(true);
     setError(null);
     
     try {
@@ -87,27 +87,23 @@ const EventDetailPage = () => {
     }
   };
 
-  const handleAddComment = async (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) {
-      navigate('/login', { state: { from: `/events/${id}` } });
-      return;
-    }
-    
-    if (!commentText.trim()) return;
-    
-    setIsSubmittingComment(true);
+    if (!user || !commentText.trim() || isSubmittingComment) return;
     
     try {
+      setIsSubmittingComment(true);
       const response = await addComment(id!, commentText);
-      setComments([response.data.comment, ...comments]);
+      
+      // Add the new comment to the state and reset form
+      const newComment = response.data.comment;
+      setComments(prevComments => [newComment, ...prevComments]);
       setCommentText('');
-      // Reset to first page when adding a new comment
-      setCommentPage(1);
+      setReplyToComment(null);
     } catch (err) {
-      console.error('Error adding comment:', err);
-      setError('Failed to add comment. Please try again.');
+      console.error('Error submitting comment:', err);
+      setError('Failed to submit comment. Please try again.');
     } finally {
       setIsSubmittingComment(false);
     }
@@ -115,18 +111,78 @@ const EventDetailPage = () => {
 
   const handleDeleteComment = async (commentId: number) => {
     try {
-      await deleteComment(id!, commentId.toString());
-      setComments(comments.filter(comment => comment.id !== commentId));
+      try {
+        await deleteComment(id!, commentId.toString());
+      } catch (err: any) {
+        console.error('Error deleting comment:', err);
+        
+        // If comment doesn't exist on server (404), we should still remove it from the UI
+        if (err.response && err.response.status === 404) {
+          console.log('Comment not found on server, but removing from UI');
+        } else {
+          // For other errors, alert the user and abort
+          setError('Failed to delete comment. Please try again.');
+          return;
+        }
+      }
+      
+      // Filter out the deleted comment and any replies to it
+      const filteredComments = comments.filter(comment => {
+        return comment.id !== commentId && comment.parent_comment_id !== commentId;
+      });
+      
+      setComments(filteredComments);
+      
       // If we're on a page that would now be empty, go back one page
-      const remainingComments = comments.filter(comment => comment.id !== commentId);
-      const maxPage = Math.ceil(remainingComments.length / commentsPerPage);
+      const maxPage = Math.ceil(filteredComments.length / commentsPerPage);
       if (commentPage > maxPage && maxPage > 0) {
         setCommentPage(maxPage);
       }
     } catch (err) {
-      console.error('Error deleting comment:', err);
-      setError('Failed to delete comment. Please try again.');
+      console.error('Unexpected error in handleDeleteComment:', err);
     }
+  };
+
+  const handleReplyToComment = (commentId: number, username: string) => {
+    // We no longer need to set the replyToComment state since replies are handled inline
+    // This is only kept for backwards compatibility but doesn't affect the UI
+    setReplyToComment({ id: commentId, username });
+  };
+
+  const handleAddReply = async (parentCommentId: number, content: string, newComment: any = null) => {
+    if (!user) return;
+    
+    try {
+      // If we don't already have the new comment data from the reply component
+      if (!newComment) {
+        const response = await addComment(id!, content, parentCommentId);
+        newComment = response.data.comment;
+      }
+      
+      // Add new comment to the state
+      setComments(prevComments => [newComment, ...prevComments]);
+      
+      // Fetch event details to properly update the nested comment structure
+      fetchEventDetails();
+    } catch (err) {
+      console.error('Error adding reply:', err);
+      setError('Failed to add reply. Please try again.');
+    }
+  };
+
+  const handleVoteOnComment = (commentId: number, voteType: 'up' | 'down', newVotes: any) => {
+    // Update the comments state with the new vote count
+    setComments(comments.map(comment => {
+      if (comment.id === commentId) {
+        return {
+          ...comment,
+          thumbs_up: newVotes.thumbs_up,
+          thumbs_down: newVotes.thumbs_down,
+          user_vote: newVotes.user_vote
+        };
+      }
+      return comment;
+    }));
   };
 
   // Format date
@@ -149,19 +205,58 @@ const EventDetailPage = () => {
     });
   };
 
+  // Organize comments into a hierarchical structure
+  const organizeComments = (comments: any[]) => {
+    const topLevelComments: any[] = [];
+    const commentMap: Record<number, any> = {};
+    
+    // First pass: build map of comments by ID and initialize replies array
+    comments.forEach(comment => {
+      commentMap[comment.id] = {
+        ...comment,
+        replies: []
+      };
+    });
+    
+    // Second pass: organize into parent-child relationship
+    comments.forEach(comment => {
+      if (comment.parent_comment_id) {
+        // This is a reply, add it to its parent's replies
+        if (commentMap[comment.parent_comment_id]) {
+          commentMap[comment.parent_comment_id].replies.push(commentMap[comment.id]);
+        } else {
+          // If parent doesn't exist (shouldn't happen), treat as top-level
+          topLevelComments.push(commentMap[comment.id]);
+        }
+      } else {
+        // This is a top-level comment
+        topLevelComments.push(commentMap[comment.id]);
+      }
+    });
+    
+    // Sort replies by date
+    Object.values(commentMap).forEach((comment: any) => {
+      comment.replies.sort((a: any, b: any) => {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
+    });
+    
+    return topLevelComments;
+  };
+
   // Sort and paginate comments
-  const sortedComments = [...comments].sort((a, b) => {
+  const sortedTopLevelComments = organizeComments([...comments].sort((a, b) => {
     const dateA = new Date(a.created_at).getTime();
     const dateB = new Date(b.created_at).getTime();
     return commentsSort === 'newest' ? dateB - dateA : dateA - dateB;
-  });
+  }));
 
-  const paginatedComments = sortedComments.slice(
+  const paginatedComments = sortedTopLevelComments.slice(
     (commentPage - 1) * commentsPerPage, 
     commentPage * commentsPerPage
   );
 
-  const totalPages = Math.ceil(comments.length / commentsPerPage);
+  const totalPages = Math.ceil(sortedTopLevelComments.length / commentsPerPage);
 
   if (isLoading) {
     return (
@@ -370,7 +465,7 @@ const EventDetailPage = () => {
             </div>
             
             {user ? (
-              <form className="comment-form" onSubmit={handleAddComment}>
+              <form className="comment-form" onSubmit={handleCommentSubmit}>
                 <div className="flex items-start gap-3 mb-4">
                   <div className="shrink-0">
                     <img 
@@ -433,7 +528,12 @@ const EventDetailPage = () => {
                       key={comment.id} 
                       comment={comment} 
                       onDelete={handleDeleteComment}
+                      onReply={handleReplyToComment}
+                      onAddReply={handleAddReply}
+                      onVote={handleVoteOnComment}
                       eventCreatorId={event.creator_id}
+                      replies={comment.replies}
+                      eventId={id!}
                     />
                   ))}
                 </div>

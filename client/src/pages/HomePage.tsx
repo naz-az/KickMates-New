@@ -99,13 +99,13 @@ const HomePage = () => {
           <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=600&q=80)' }}>
             <h3>Football</h3>
           </div>
-          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1595435934349-5c8a59929617?auto=format&fit=crop&w=600&q=80)' }}>
+          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1670898839060-8b0a8902ee1e?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
             <h3>Tennis</h3>
           </div>
-          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1546519638-68e109acd27d?auto=format&fit=crop&w=600&q=80)' }}>
+          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1519861531473-9200262188bf?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
             <h3>Basketball</h3>
           </div>
-          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b?auto=format&fit=crop&w=600&q=80)' }}>
+          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1562088287-bde35a1ea917?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
             <h3>Yoga</h3>
           </div>
         </div>

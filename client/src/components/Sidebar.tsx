@@ -1,6 +1,4 @@
-import { useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -8,7 +6,6 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ collapsed }: SidebarProps) => {
-  const { user } = useContext(AuthContext);
   const location = useLocation();
 
   // Navigation items
@@ -31,6 +28,16 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
     { path: '/messages', label: 'Messages', icon: (
       <svg xmlns="http://www.w3.org/2000/svg" className="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+      </svg>
+    )},
+    { path: '/members', label: 'Members', icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    )},
+    { path: '/notifications', label: 'Notifications', icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
       </svg>
     )},
     { path: '/profile', label: 'Profile', icon: (
@@ -63,11 +70,11 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
     <aside className="sidebar">
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12.75 7.76v8.48a.75.75 0 0 1-1.5 0V7.76l-4.72 4.72a.75.75 0 1 1-1.06-1.06l5.5-5.5a.77.77 0 0 1 1.06 0l5.5 5.5a.75.75 0 1 1-1.06 1.06l-4.72-4.72Z" />
-          </svg>
+          {/* <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"> */}
+            {/* <path d="M12.75 7.76v8.48a.75.75 0 0 1-1.5 0V7.76l-4.72 4.72a.75.75 0 1 1-1.06-1.06l5.5-5.5a.77.77 0 0 1 1.06 0l5.5 5.5a.75.75 0 1 1-1.06 1.06l-4.72-4.72Z" /> */}
+          {/* </svg> */}
         </div>
-        <span className="sidebar-logo-text">KickMates</span>
+        <span className="sidebar-logo-text" style={{ fontSize: '1.4rem' }}>KickMates</span>
       </div>
 
       <nav className="sidebar-nav">

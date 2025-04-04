@@ -54,11 +54,29 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       event_id INTEGER NOT NULL,
       user_id INTEGER NOT NULL,
+      parent_comment_id INTEGER DEFAULT NULL,
       content TEXT NOT NULL,
+      thumbs_up INTEGER DEFAULT 0,
+      thumbs_down INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (event_id) REFERENCES events (id),
-      FOREIGN KEY (user_id) REFERENCES users (id)
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      FOREIGN KEY (parent_comment_id) REFERENCES comments (id)
+    )
+  `);
+
+  // Comment votes table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS comment_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      comment_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      vote_type TEXT CHECK( vote_type IN ('up', 'down') ) NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (comment_id) REFERENCES comments (id),
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      UNIQUE (comment_id, user_id)
     )
   `);
 
@@ -86,6 +104,56 @@ db.serialize(() => {
       FOREIGN KEY (event_id) REFERENCES events (id),
       FOREIGN KEY (user_id) REFERENCES users (id),
       UNIQUE (event_id, user_id)
+    )
+  `);
+
+  // Notifications table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      type TEXT CHECK( type IN ('event_invite', 'event_update', 'event_reminder', 'comment', 'join_request', 'join_accepted', 'system') ) NOT NULL,
+      content TEXT NOT NULL,
+      related_id INTEGER,
+      is_read BOOLEAN DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+  `);
+
+  // Conversations table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Conversation participants table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS conversation_participants (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (conversation_id) REFERENCES conversations (id),
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      UNIQUE (conversation_id, user_id)
+    )
+  `);
+
+  // Messages table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL,
+      sender_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      is_read BOOLEAN DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (conversation_id) REFERENCES conversations (id),
+      FOREIGN KEY (sender_id) REFERENCES users (id)
     )
   `);
 

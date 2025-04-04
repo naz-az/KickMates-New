@@ -110,14 +110,15 @@ export const getEvents = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Get a single event by ID
+// Get an event by ID with participants and comments
 export const getEventById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id;
     
-    // Get event details
+    // Get the event
     const event = await getAsync(
-      `SELECT e.*, u.username as creator_name
+      `SELECT e.*, u.username as creator_name, u.profile_image as creator_profile_image
        FROM events e
        JOIN users u ON e.creator_id = u.id
        WHERE e.id = ?`,
@@ -131,43 +132,46 @@ export const getEventById = async (req: Request, res: Response): Promise<void> =
     
     // Get participants
     const participants = await allAsync(
-      `SELECT p.status, p.joined_at, u.id, u.username, u.profile_image
+      `SELECT p.id, p.user_id, p.status, p.joined_at, u.username, u.profile_image
        FROM participants p
        JOIN users u ON p.user_id = u.id
        WHERE p.event_id = ?
-       ORDER BY p.status, p.joined_at`,
+       ORDER BY p.joined_at`,
       [id]
     );
     
-    // Get comments
+    // Get all comments with user details and votes
     const comments = await allAsync(
-      `SELECT c.id, c.content, c.created_at, u.id as user_id, u.username, u.profile_image
+      `SELECT c.id, c.content, c.created_at, c.parent_comment_id, c.thumbs_up, c.thumbs_down, 
+       u.id as user_id, u.username, u.profile_image,
+       (SELECT vote_type FROM comment_votes WHERE comment_id = c.id AND user_id = ?) as user_vote
        FROM comments c
        JOIN users u ON c.user_id = u.id
        WHERE c.event_id = ?
        ORDER BY c.created_at DESC`,
-      [id]
+      [userId || null, id]
     );
     
-    // Check if user has bookmarked the event
+    // Check if user has bookmarked this event
     let isBookmarked = false;
-    let participationStatus = null;
-    
-    if (req.user) {
+    if (userId) {
       const bookmark = await getAsync(
         'SELECT id FROM bookmarks WHERE event_id = ? AND user_id = ?',
-        [id, req.user.id]
+        [id, userId]
       );
-      
       isBookmarked = !!bookmark;
-      
-      const participation = await getAsync(
+    }
+    
+    // Check if user is a participant
+    let participationStatus = null;
+    if (userId) {
+      const participant = await getAsync(
         'SELECT status FROM participants WHERE event_id = ? AND user_id = ?',
-        [id, req.user.id]
+        [id, userId]
       );
       
-      if (participation) {
-        participationStatus = participation.status;
+      if (participant) {
+        participationStatus = participant.status;
       }
     }
     
@@ -180,7 +184,7 @@ export const getEventById = async (req: Request, res: Response): Promise<void> =
     });
   } catch (error) {
     console.error('Get event error:', error);
-    res.status(500).json({ message: 'Server error fetching event' });
+    res.status(500).json({ message: 'Server error getting event details' });
   }
 };
 
@@ -468,7 +472,7 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { content } = req.body;
+    const { content, parentCommentId } = req.body;
     
     if (!content || !content.trim()) {
       res.status(400).json({ message: 'Comment content is required' });
@@ -483,15 +487,30 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
       return;
     }
     
+    // If parentCommentId is provided, check if it exists and belongs to this event
+    if (parentCommentId) {
+      const parentComment = await getAsync(
+        'SELECT id FROM comments WHERE id = ? AND event_id = ?',
+        [parentCommentId, id]
+      );
+      
+      if (!parentComment) {
+        res.status(404).json({ message: 'Parent comment not found' });
+        return;
+      }
+    }
+    
     // Add comment
     const result = await runAsync(
-      'INSERT INTO comments (event_id, user_id, content) VALUES (?, ?, ?)',
-      [id, userId, content]
+      'INSERT INTO comments (event_id, user_id, content, parent_comment_id) VALUES (?, ?, ?, ?)',
+      [id, userId, content, parentCommentId || null]
     );
     
     // Get comment with user details
     const comment = await getAsync(
-      `SELECT c.id, c.content, c.created_at, u.id as user_id, u.username, u.profile_image
+      `SELECT c.id, c.content, c.created_at, c.parent_comment_id, c.thumbs_up, c.thumbs_down,
+        u.id as user_id, u.username, u.profile_image,
+        NULL as user_vote
        FROM comments c
        JOIN users u ON c.user_id = u.id
        WHERE c.id = ?`,
@@ -534,12 +553,231 @@ export const deleteComment = async (req: Request, res: Response): Promise<void> 
       return;
     }
     
-    // Delete comment
-    await runAsync('DELETE FROM comments WHERE id = ?', [commentId]);
+    // Start a transaction
+    await runAsync('BEGIN TRANSACTION');
     
-    res.status(200).json({ message: 'Comment deleted' });
+    try {
+      // First, recursively delete all child comments (replies to this comment)
+      // This helper function will find all child comments and delete them
+      const deleteReplies = async (parentCommentId: string) => {
+        // Find all replies to this comment
+        const replies = await allAsync(
+          'SELECT id FROM comments WHERE parent_comment_id = ?',
+          [parentCommentId]
+        );
+        
+        // For each reply, recursively delete its replies first
+        for (const reply of replies) {
+          await deleteReplies(reply.id.toString());
+        }
+        
+        // Delete all votes for these comments
+        await runAsync(
+          'DELETE FROM comment_votes WHERE comment_id IN (SELECT id FROM comments WHERE parent_comment_id = ?)',
+          [parentCommentId]
+        );
+        
+        // Then delete all replies to this comment
+        await runAsync(
+          'DELETE FROM comments WHERE parent_comment_id = ?',
+          [parentCommentId]
+        );
+      };
+      
+      // First delete all nested replies
+      await deleteReplies(commentId);
+      
+      // Delete votes for this comment
+      await runAsync(
+        'DELETE FROM comment_votes WHERE comment_id = ?',
+        [commentId]
+      );
+      
+      // Finally delete the comment itself
+      await runAsync(
+        'DELETE FROM comments WHERE id = ?',
+        [commentId]
+      );
+      
+      // Commit the transaction
+      await runAsync('COMMIT');
+      
+      res.status(200).json({ message: 'Comment deleted' });
+    } catch (error) {
+      // Rollback on error
+      await runAsync('ROLLBACK');
+      throw error;
+    }
   } catch (error) {
     console.error('Delete comment error:', error);
     res.status(500).json({ message: 'Server error deleting comment' });
+  }
+};
+
+// Vote on a comment (thumbs up/down)
+export const voteComment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, commentId } = req.params;
+    const userId = req.user.id;
+    const { voteType } = req.body;
+    
+    if (!voteType || (voteType !== 'up' && voteType !== 'down')) {
+      res.status(400).json({ message: 'Vote type must be "up" or "down"' });
+      return;
+    }
+    
+    // Check if comment exists and belongs to the event
+    const comment = await getAsync(
+      'SELECT id, thumbs_up, thumbs_down FROM comments WHERE id = ? AND event_id = ?',
+      [commentId, id]
+    );
+    
+    if (!comment) {
+      res.status(404).json({ message: 'Comment not found' });
+      return;
+    }
+    
+    // Check if user has already voted on this comment
+    const existingVote = await getAsync(
+      'SELECT vote_type FROM comment_votes WHERE comment_id = ? AND user_id = ?',
+      [commentId, userId]
+    );
+    
+    // Start a transaction for the update
+    await runAsync('BEGIN TRANSACTION');
+    
+    try {
+      let newThumbsUp = comment.thumbs_up;
+      let newThumbsDown = comment.thumbs_down;
+      
+      if (existingVote) {
+        // User is changing their vote
+        if (existingVote.vote_type !== voteType) {
+          // Update the vote type
+          await runAsync(
+            'UPDATE comment_votes SET vote_type = ? WHERE comment_id = ? AND user_id = ?',
+            [voteType, commentId, userId]
+          );
+          
+          // Adjust the counters
+          if (voteType === 'up') {
+            newThumbsUp += 1;
+            newThumbsDown -= 1;
+          } else {
+            newThumbsUp -= 1;
+            newThumbsDown += 1;
+          }
+        } else {
+          // User is removing their vote
+          await runAsync(
+            'DELETE FROM comment_votes WHERE comment_id = ? AND user_id = ?',
+            [commentId, userId]
+          );
+          
+          // Adjust the counters
+          if (voteType === 'up') {
+            newThumbsUp -= 1;
+          } else {
+            newThumbsDown -= 1;
+          }
+        }
+      } else {
+        // User is adding a new vote
+        await runAsync(
+          'INSERT INTO comment_votes (comment_id, user_id, vote_type) VALUES (?, ?, ?)',
+          [commentId, userId, voteType]
+        );
+        
+        // Adjust the counters
+        if (voteType === 'up') {
+          newThumbsUp += 1;
+        } else {
+          newThumbsDown += 1;
+        }
+      }
+      
+      // Update comment counter
+      await runAsync(
+        'UPDATE comments SET thumbs_up = ?, thumbs_down = ? WHERE id = ?',
+        [newThumbsUp, newThumbsDown, commentId]
+      );
+      
+      await runAsync('COMMIT');
+      
+      res.status(200).json({
+        message: 'Vote recorded',
+        comment: {
+          id: comment.id,
+          thumbs_up: newThumbsUp,
+          thumbs_down: newThumbsDown,
+          user_vote: existingVote && existingVote.vote_type === voteType ? null : voteType
+        }
+      });
+    } catch (error) {
+      await runAsync('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Vote comment error:', error);
+    res.status(500).json({ message: 'Server error voting on comment' });
+  }
+};
+
+// Upload event image
+export const uploadEventImage = async (req: Request & { file?: any }, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    // Check if user is the creator
+    const event = await getAsync(
+      'SELECT creator_id FROM events WHERE id = ?',
+      [id]
+    );
+    
+    if (!event) {
+      res.status(404).json({ message: 'Event not found' });
+      return;
+    }
+    
+    if (event.creator_id !== userId) {
+      res.status(403).json({ message: 'Not authorized to update this event' });
+      return;
+    }
+    
+    // req.file is provided by multer middleware
+    if (!(req as any).file) {
+      res.status(400).json({ message: 'No file was uploaded' });
+      return;
+    }
+
+    // Save the file path or URL to the database
+    const fileUrl = `/uploads/${(req as any).file.filename}`;
+    
+    // Update event's image_url field
+    await runAsync(
+      `UPDATE events 
+       SET image_url = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [fileUrl, id]
+    );
+
+    // Get updated event
+    const updatedEvent = await getAsync(
+      `SELECT e.*, u.username as creator_name
+       FROM events e
+       JOIN users u ON e.creator_id = u.id
+       WHERE e.id = ?`,
+      [id]
+    );
+
+    res.status(200).json({
+      message: 'Event image uploaded successfully',
+      event: updatedEvent
+    });
+  } catch (error) {
+    console.error('Upload event image error:', error);
+    res.status(500).json({ message: 'Server error uploading event image' });
   }
 }; 

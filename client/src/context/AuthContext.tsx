@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, ReactNode } from 'react';
 import { login as apiLogin, register as apiRegister, getProfile } from '../services/api';
+import { AxiosError } from 'axios';
 
 interface User {
   id: number;
@@ -10,14 +11,27 @@ interface User {
   profile_image?: string;
 }
 
+interface RegisterUserData {
+  username: string;
+  email: string;
+  password: string;
+  full_name?: string;
+  bio?: string;
+}
+
+interface ErrorResponse {
+  message: string;
+}
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (userData: any) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
+  register: (userData: RegisterUserData) => Promise<void>;
   logout: () => void;
   clearError: () => void;
+  isAuthenticated: () => boolean;
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -28,6 +42,7 @@ export const AuthContext = createContext<AuthContextType>({
   register: async () => {},
   logout: () => {},
   clearError: () => {},
+  isAuthenticated: () => false,
 });
 
 interface AuthProviderProps {
@@ -61,17 +76,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   // Login
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const res = await apiLogin(email, password);
+      const res = await apiLogin(identifier, password);
       
       localStorage.setItem('token', res.data.token);
       setUser(res.data.user);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed');
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      setError(
+        axiosError.response?.data?.message || 'Login failed'
+      );
       throw err;
     } finally {
       setIsLoading(false);
@@ -79,7 +97,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   // Register
-  const register = async (userData: any) => {
+  const register = async (userData: RegisterUserData) => {
     setIsLoading(true);
     setError(null);
 
@@ -88,8 +106,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       localStorage.setItem('token', res.data.token);
       setUser(res.data.user);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed');
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      setError(
+        axiosError.response?.data?.message || 'Registration failed'
+      );
       throw err;
     } finally {
       setIsLoading(false);
@@ -106,9 +127,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const clearError = () => {
     setError(null);
   };
+  
+  // Check if user is authenticated
+  const isAuthenticated = () => {
+    return !!user && !!localStorage.getItem('token');
+  };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, error, login, register, logout, clearError }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isLoading, 
+      error, 
+      login, 
+      register, 
+      logout, 
+      clearError,
+      isAuthenticated 
+    }}>
       {children}
     </AuthContext.Provider>
   );

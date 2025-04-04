@@ -1,286 +1,248 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getConversations, getMessages, sendMessage } from '../services/api';
 
-// Mock user and message data (would normally be loaded from API)
-const mockContacts = [
-  {
-    id: 1,
-    name: 'Sarah Williams',
-    avatar: 'https://i.pravatar.cc/150?u=sarah',
-    lastMessage: 'Are we still meeting today?',
-    time: 'Just now',
-    unread: 2,
-    online: true
-  },
-  {
-    id: 2,
-    name: 'John Miller',
-    avatar: 'https://i.pravatar.cc/150?u=john',
-    lastMessage: 'The game was amazing!',
-    time: '2 hours ago',
-    unread: 0,
-    online: false
-  },
-  {
-    id: 3,
-    name: 'Emma Davis',
-    avatar: 'https://i.pravatar.cc/150?u=emma',
-    lastMessage: 'Looking forward to our tennis match',
-    time: 'Yesterday',
-    unread: 0,
-    online: true
-  },
-  {
-    id: 4,
-    name: 'Michael Chen',
-    avatar: 'https://i.pravatar.cc/150?u=michael',
-    lastMessage: 'Thanks for organizing the event',
-    time: 'Monday',
-    unread: 0,
-    online: false
-  },
-  {
-    id: 5,
-    name: 'Lisa Rodriguez',
-    avatar: 'https://i.pravatar.cc/150?u=lisa',
-    lastMessage: 'Count me in for the basketball game on Saturday',
-    time: 'Last week',
-    unread: 0,
-    online: true
-  }
-];
+// Message types
+interface Contact {
+  id: number;
+  name: string;
+  avatar: string;
+  lastMessage: string;
+  time: string;
+  unread: number;
+  online: boolean;
+}
 
-const mockMessages = {
-  1: [
-    {
-      id: 101,
-      senderId: 1,
-      text: 'Hey there! How are you doing today?',
-      time: '10:30 AM',
-      date: 'Today'
-    },
-    {
-      id: 102,
-      senderId: 'me',
-      text: 'Im good, thanks! Just finishing up some work.',
-      time: '10:32 AM',
-      date: 'Today'
-    },
-    {
-      id: 103,
-      senderId: 1,
-      text: 'Are we still meeting today for the basketball practice?',
-      time: '10:45 AM',
-      date: 'Today'
-    },
-    {
-      id: 104,
-      senderId: 'me',
-      text: 'Yes, definitely! I was thinking 5pm at the usual court, does that work for you?',
-      time: '10:50 AM',
-      date: 'Today'
-    },
-    {
-      id: 105,
-      senderId: 1,
-      text: 'Perfect. I invited a couple more players to join us if that\'s okay.',
-      time: '10:52 AM',
-      date: 'Today'
-    },
-    {
-      id: 106,
-      senderId: 'me',
-      text: 'That\'s great! The more the merrier. Should we get some drinks for after?',
-      time: '10:55 AM',
-      date: 'Today'
-    }
-  ],
-  2: [
-    {
-      id: 201,
-      senderId: 2,
-      text: 'Did you see the game last night?',
-      time: '7:30 PM',
-      date: 'Yesterday'
-    },
-    {
-      id: 202,
-      senderId: 'me',
-      text: 'Yes! It was incredible. Our team played really well.',
-      time: '8:15 PM',
-      date: 'Yesterday'
-    },
-    {
-      id: 203,
-      senderId: 2,
-      text: 'That last-minute shot was unbelievable!',
-      time: '8:17 PM',
-      date: 'Yesterday'
-    }
-  ],
-  3: [
-    {
-      id: 301,
-      senderId: 3,
-      text: 'Hey, do you want to play tennis this weekend?',
-      time: '3:15 PM',
-      date: 'Monday'
-    },
-    {
-      id: 302,
-      senderId: 'me',
-      text: 'Id love to! How about Saturday morning?',
-      time: '4:22 PM',
-      date: 'Monday'
-    },
-    {
-      id: 303,
-      senderId: 3,
-      text: 'Saturday works for me. 10am?',
-      time: '4:30 PM',
-      date: 'Monday'
-    },
-    {
-      id: 304,
-      senderId: 'me',
-      text: 'Perfect, see you then!',
-      time: '4:35 PM',
-      date: 'Monday'
-    }
-  ],
-  4: [
-    {
-      id: 401,
-      senderId: 4,
-      text: 'Thanks for organizing the soccer match last week!',
-      time: '12:10 PM',
-      date: 'Last week'
-    },
-    {
-      id: 402,
-      senderId: 'me',
-      text: 'No problem! It was a lot of fun.',
-      time: '1:45 PM',
-      date: 'Last week'
-    },
-    {
-      id: 403,
-      senderId: 4,
-      text: 'Let me know when you plan the next one. I want to join again!',
-      time: '2:00 PM',
-      date: 'Last week'
-    }
-  ],
-  5: [
-    {
-      id: 501,
-      senderId: 5,
-      text: 'Are you organizing a basketball game this weekend?',
-      time: '5:20 PM',
-      date: 'Last week'
-    },
-    {
-      id: 502,
-      senderId: 'me',
-      text: 'Yes, planning for Saturday at 3pm at Central Park courts.',
-      time: '5:45 PM',
-      date: 'Last week'
-    },
-    {
-      id: 503,
-      senderId: 5,
-      text: 'Count me in! Should I bring anything?',
-      time: '6:10 PM',
-      date: 'Last week'
-    },
-    {
-      id: 504,
-      senderId: 'me',
-      text: 'Just yourself and water! We have all the equipment.',
-      time: '6:15 PM',
-      date: 'Last week'
-    }
-  ]
-};
+interface ConversationParticipant {
+  id: number;
+  username: string;
+  full_name: string;
+  profile_image: string;
+}
+
+interface Conversation {
+  id: number;
+  participants: ConversationParticipant[];
+  lastMessage: {
+    id: number;
+    senderId: number;
+    senderUsername: string;
+    content: string;
+    isRead: boolean;
+    createdAt: string;
+    displayTime: string;
+  } | null;
+  unreadCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface MessageData {
+  id: number;
+  senderId: number;
+  senderUsername: string;
+  senderName: string;
+  senderProfileImage: string;
+  content: string;
+  isRead: boolean;
+  time: string;
+  date: string;
+}
 
 const MessagesPage = () => {
-  const { contactId } = useParams();
-  const [activeContact, setActiveContact] = useState(contactId ? parseInt(contactId) : 1);
+  const { conversationId } = useParams();
+  const navigate = useNavigate();
+  
+  const [activeConversation, setActiveConversation] = useState<number | null>(
+    conversationId ? parseInt(conversationId) : null
+  );
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [contacts, setContacts] = useState(mockContacts);
-  const [messages, setMessages] = useState(mockMessages);
-  const messageEndRef = useRef(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<MessageData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
+  const messageEndRef = useRef<HTMLDivElement>(null);
 
-  // Filter contacts based on search query
-  const filteredContacts = contacts.filter(contact => 
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Get user ID from localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      setUserId(user.id);
+    }
+  }, []);
 
-  // Get current active contact data
-  const activeContactData = contacts.find(contact => contact.id === activeContact);
-  
-  // Get messages for active contact
-  const activeMessages = messages[activeContact] || [];
+  // Fetch conversations
+  useEffect(() => {
+    const fetchConversations = async () => {
+      try {
+        setLoading(true);
+        const response = await getConversations();
+        setConversations(response.data.conversations);
+        
+        // If no active conversation is set but we have conversations, set the first one active
+        if (!activeConversation && response.data.conversations.length > 0) {
+          setActiveConversation(response.data.conversations[0].id);
+          navigate(`/messages/${response.data.conversations[0].id}`);
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching conversations:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchConversations();
+  }, [activeConversation, navigate]);
+
+  // Fetch messages when active conversation changes
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!activeConversation) return;
+      
+      try {
+        setLoadingMessages(true);
+        const response = await getMessages(activeConversation);
+        setMessages(response.data.messages);
+        setLoadingMessages(false);
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+        setLoadingMessages(false);
+      }
+    };
+
+    fetchMessages();
+  }, [activeConversation]);
 
   // Scroll to bottom of messages when they change
   useEffect(() => {
     if (messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [activeMessages]);
+  }, [messages]);
+
+  // Filter conversations based on search query
+  const filteredConversations = conversations.filter(conversation => {
+    const participantNames = conversation.participants
+      .map(p => p.full_name || p.username)
+      .join(' ');
+    
+    return participantNames.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  // Get current active conversation data
+  const activeConversationData = conversations.find(conversation => conversation.id === activeConversation);
+  
+  // Format conversations into contacts for display
+  const contacts: Contact[] = filteredConversations.map(conversation => {
+    // Get the first participant's name and image
+    const participant = conversation.participants[0];
+    
+    return {
+      id: conversation.id,
+      name: participant.full_name || participant.username,
+      avatar: participant.profile_image || 'https://i.pravatar.cc/150?u=user' + participant.id,
+      lastMessage: conversation.lastMessage ? conversation.lastMessage.content : 'No messages yet',
+      time: conversation.lastMessage ? conversation.lastMessage.displayTime : 'Never',
+      unread: conversation.unreadCount,
+      online: Math.random() > 0.5 // Random online status for demo
+    };
+  });
 
   // Mark messages as read when selecting a contact
-  const handleSelectContact = (contactId) => {
-    setActiveContact(contactId);
+  const handleSelectContact = (contactId: number) => {
+    setActiveConversation(contactId);
+    navigate(`/messages/${contactId}`);
     
-    // Update contacts to mark messages as read
-    setContacts(prevContacts => 
-      prevContacts.map(contact => 
-        contact.id === contactId ? { ...contact, unread: 0 } : contact
+    // Update conversations to mark messages as read locally
+    setConversations(prevConversations => 
+      prevConversations.map(conversation => 
+        conversation.id === contactId ? { ...conversation, unreadCount: 0 } : conversation
       )
     );
   };
 
   // Send a new message
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (messageInput.trim()) {
-      const newMessage = {
-        id: Date.now(),
-        senderId: 'me',
-        text: messageInput.trim(),
+    if (!activeConversation || !messageInput.trim()) return;
+    
+    try {
+      // Optimistically add the message to UI
+      const newMessage: MessageData = {
+        id: Date.now(), // Temporary ID
+        senderId: userId || 0,
+        senderUsername: 'me',
+        senderName: 'Me',
+        senderProfileImage: '',
+        content: messageInput.trim(),
+        isRead: false,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         date: 'Today'
       };
       
-      // Add message to state
-      setMessages(prevMessages => ({
-        ...prevMessages,
-        [activeContact]: [...(prevMessages[activeContact] || []), newMessage]
-      }));
+      setMessages(prev => [...prev, newMessage]);
       
-      // Update last message in contacts
-      setContacts(prevContacts => 
-        prevContacts.map(contact => 
-          contact.id === activeContact 
+      // Update last message in conversations for UI
+      setConversations(prevConversations => 
+        prevConversations.map(conversation => 
+          conversation.id === activeConversation
             ? { 
-                ...contact, 
-                lastMessage: messageInput.trim(),
-                time: 'Just now'
+                ...conversation, 
+                lastMessage: conversation.lastMessage 
+                  ? {
+                      ...conversation.lastMessage,
+                      content: messageInput.trim(),
+                      displayTime: 'Just now'
+                    }
+                  : {
+                      id: Date.now(),
+                      senderId: userId || 0,
+                      senderUsername: 'me',
+                      content: messageInput.trim(),
+                      isRead: false,
+                      createdAt: new Date().toISOString(),
+                      displayTime: 'Just now'
+                    }
               } 
-            : contact
+            : conversation
         )
       );
       
       // Clear input
       setMessageInput('');
+      
+      // Send to API
+      const response = await sendMessage(activeConversation, messageInput.trim());
+      
+      // Update with actual message data from server
+      setMessages(prev => prev.map(msg => 
+        // Replace our optimistic message with real one from server
+        msg.id === newMessage.id ? {
+          id: response.data.message.id,
+          senderId: response.data.message.senderId,
+          senderUsername: response.data.message.senderUsername,
+          senderName: response.data.message.senderName,
+          senderProfileImage: response.data.message.senderProfileImage,
+          content: response.data.message.content,
+          isRead: response.data.message.isRead,
+          time: response.data.message.time,
+          date: response.data.message.date
+        } : msg
+      ));
+      
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Revert the optimistic update if there's an error
+      setMessages(prev => prev.filter(msg => msg.id !== Date.now()));
     }
   };
 
   // Group messages by date
-  const groupedMessages = activeMessages.reduce((groups, message) => {
+  const groupedMessages = messages.reduce<Record<string, MessageData[]>>((groups, message) => {
     const date = message.date;
     if (!groups[date]) {
       groups[date] = [];
@@ -290,7 +252,15 @@ const MessagesPage = () => {
   }, {});
 
   // Get total unread messages count
-  const totalUnread = contacts.reduce((count, contact) => count + contact.unread, 0);
+  const totalUnread = conversations.reduce((count, conversation) => count + conversation.unreadCount, 0);
+
+  if (loading) {
+    return (
+      <div className="p-4 flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4">
@@ -322,11 +292,11 @@ const MessagesPage = () => {
           </div>
           
           <div className="chat-conversations">
-            {filteredContacts.length > 0 ? (
-              filteredContacts.map(contact => (
+            {contacts.length > 0 ? (
+              contacts.map(contact => (
                 <div 
                   key={contact.id}
-                  className={`chat-conversation-item ${contact.id === activeContact ? 'active' : ''}`}
+                  className={`chat-conversation-item ${contact.id === activeConversation ? 'active' : ''}`}
                   onClick={() => handleSelectContact(contact.id)}
                 >
                   <div className="relative">
@@ -351,7 +321,7 @@ const MessagesPage = () => {
                 </div>
               ))
             ) : (
-              <div className="text-center p-4 text-gray-500">No contacts found</div>
+              <div className="text-center p-4 text-gray-500">No conversations found</div>
             )}
           </div>
         </div>
@@ -359,20 +329,22 @@ const MessagesPage = () => {
         {/* Chat Main Content */}
         <div className="chat-content">
           {/* Chat Header */}
-          {activeContactData && (
+          {activeConversationData && contacts.length > 0 && (
             <div className="chat-header">
               <div className="chat-user">
                 <img 
-                  src={activeContactData.avatar} 
-                  alt={activeContactData.name} 
+                  src={contacts.find(c => c.id === activeConversation)?.avatar} 
+                  alt={contacts.find(c => c.id === activeConversation)?.name}
                   className="chat-avatar"
                 />
                 <div>
-                  <div className="font-medium">{activeContactData.name}</div>
-                  {activeContactData.online ? (
+                  <div className="font-medium">
+                    {contacts.find(c => c.id === activeConversation)?.name}
+                  </div>
+                  {contacts.find(c => c.id === activeConversation)?.online ? (
                     <div className="chat-user-status">Online</div>
                   ) : (
-                    <div className="text-sm text-gray-500">Last seen: {activeContactData.time}</div>
+                    <div className="text-sm text-gray-500">Offline</div>
                   )}
                 </div>
               </div>
@@ -399,43 +371,53 @@ const MessagesPage = () => {
           
           {/* Chat Messages */}
           <div className="chat-messages">
-            {Object.entries(groupedMessages).map(([date, dateMessages]) => (
-              <div key={date} className="message-group">
-                <div className="text-center mb-4">
-                  <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">
-                    {date}
-                  </span>
-                </div>
-                
-                {dateMessages.map(message => (
-                  <div 
-                    key={message.id}
-                    className={`flex mb-4 ${message.senderId === 'me' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    {message.senderId !== 'me' && (
-                      <img 
-                        src={activeContactData?.avatar} 
-                        alt={activeContactData?.name}
-                        className="w-8 h-8 rounded-full mr-2 self-end"
-                      />
-                    )}
-                    
-                    <div className={`message-bubble ${message.senderId === 'me' ? 'message-outgoing' : 'message-incoming'}`}>
-                      {message.text}
-                      <div className="message-time">{message.time}</div>
-                    </div>
-                    
-                    {message.senderId === 'me' && (
-                      <img 
-                        src="https://i.pravatar.cc/150?img=68" 
-                        alt="Me"
-                        className="w-8 h-8 rounded-full ml-2 self-end"
-                      />
-                    )}
-                  </div>
-                ))}
+            {loadingMessages ? (
+              <div className="flex justify-center items-center h-full">
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary"></div>
               </div>
-            ))}
+            ) : (
+              Object.entries(groupedMessages).map(([date, dateMessages]) => (
+                <div key={date} className="message-group">
+                  <div className="text-center mb-4">
+                    <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">
+                      {date}
+                    </span>
+                  </div>
+                  
+                  {dateMessages.map(message => {
+                    const isCurrentUser = message.senderId === userId;
+                    
+                    return (
+                      <div 
+                        key={message.id}
+                        className={`flex mb-4 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                      >
+                        {!isCurrentUser && (
+                          <img 
+                            src={message.senderProfileImage || `https://i.pravatar.cc/150?u=user${message.senderId}`} 
+                            alt={message.senderName}
+                            className="w-8 h-8 rounded-full mr-2 self-end"
+                          />
+                        )}
+                        
+                        <div className={`message-bubble ${isCurrentUser ? 'message-outgoing' : 'message-incoming'}`}>
+                          {message.content}
+                          <div className="message-time">{message.time}</div>
+                        </div>
+                        
+                        {isCurrentUser && (
+                          <img 
+                            src={localStorage.getItem('profile_image') || `https://i.pravatar.cc/150?u=me`} 
+                            alt="Me"
+                            className="w-8 h-8 rounded-full ml-2 self-end"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))
+            )}
             <div ref={messageEndRef} />
           </div>
           
@@ -457,12 +439,13 @@ const MessagesPage = () => {
                 onChange={(e) => setMessageInput(e.target.value)}
                 placeholder="Type a message..."
                 className="message-input"
+                disabled={!activeConversation}
               />
               
               <button 
                 type="submit" 
                 className="message-send-button"
-                disabled={!messageInput.trim()}
+                disabled={!messageInput.trim() || !activeConversation}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />

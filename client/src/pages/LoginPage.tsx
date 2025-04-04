@@ -1,9 +1,9 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 const LoginPage = () => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState('');
   
@@ -11,23 +11,31 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Get redirect path from location state or default to home
-  const from = location.state?.from?.pathname || '/';
+  // Get redirect path from location state, session storage, or default to home
+  const from = location.state?.from?.pathname || sessionStorage.getItem('redirectPath') || '/';
+  
+  // Clear redirect path when mounting the login page
+  useEffect(() => {
+    // Remove the stored path once it's been used
+    if (sessionStorage.getItem('redirectPath')) {
+      sessionStorage.removeItem('redirectPath');
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     
     // Simple validation
-    if (!email || !password) {
-      setFormError('Please enter both email and password');
+    if (!identifier || !password) {
+      setFormError('Please enter both email/username and password');
       return;
     }
     
     try {
-      await login(email, password);
+      await login(identifier, password);
       navigate(from, { replace: true });
-    } catch (err) {
+    } catch {
       // Error is handled by the context
     }
   };
@@ -49,18 +57,18 @@ const LoginPage = () => {
           
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="block mb-2 font-medium text-text-dark">
-                Email
+              <label htmlFor="identifier" className="block mb-2 font-medium text-text-dark">
+                Email or Username
               </label>
               <input
-                type="email"
-                id="email"
-                value={email}
+                type="text"
+                id="identifier"
+                value={identifier}
                 onChange={(e) => {
-                  setEmail(e.target.value);
+                  setIdentifier(e.target.value);
                   clearError();
                 }}
-                placeholder="john@example.com"
+                placeholder="john@example.com or john_doe"
                 required
                 className="w-full p-3 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />

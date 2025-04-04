@@ -27,7 +27,7 @@
 @layer components {
   /* Layout Styles */
   .app-container {
-    @apply flex h-screen overflow-hidden;
+    @apply flex overflow-hidden;
   }
 
   /* Sidebar Styles */
@@ -705,7 +705,15 @@
 
   /* Comment Styling */
   .comment {
-    @apply flex gap-3 p-4 rounded-lg bg-gray-50 border border-gray-100 transition-all hover:border-gray-200 hover:bg-gray-50/80 relative animate-fade-in;
+    @apply flex flex-col p-4 rounded-lg bg-gray-50 border border-gray-100 transition-all hover:border-gray-200 hover:bg-gray-50/80 relative animate-fade-in mb-4;
+  }
+
+  .comment-main {
+    @apply flex gap-3 w-full;
+  }
+
+  .comment-reply {
+    @apply mt-3 mb-2 bg-gray-50/60 border-l-2 border-l-gray-200 ml-10;
   }
 
   @keyframes fade-in {
@@ -742,7 +750,59 @@
   }
 
   .comment-text {
-    @apply text-sm text-text-dark whitespace-pre-line mb-0 break-words;
+    @apply text-sm text-text-dark whitespace-pre-line mb-2 break-words;
+  }
+
+  .comment-actions {
+    @apply flex items-center justify-between text-xs text-text-light;
+  }
+
+  .comment-reply-btn {
+    @apply text-xs text-text-light hover:text-primary transition-colors py-1 px-2 rounded-md hover:bg-gray-100;
+  }
+
+  .comment-votes {
+    @apply flex items-center gap-3;
+  }
+
+  .vote-btn {
+    @apply flex items-center gap-1 text-text-light transition-colors hover:text-primary;
+  }
+
+  .vote-btn.active {
+    @apply text-primary;
+  }
+
+  .vote-btn:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .upvote.active {
+    @apply text-green-600 hover:text-green-700;
+  }
+
+  .downvote.active {
+    @apply text-red-600 hover:text-red-700;
+  }
+
+  .comment-replies {
+    @apply w-full pl-10 mt-3;
+  }
+
+  .inline-reply-form {
+    @apply mt-2 pl-10 mb-3 flex items-center gap-2 pt-1;
+  }
+  
+  .inline-reply-form img {
+    @apply w-8 h-8 rounded-full;
+  }
+  
+  .inline-reply-form input {
+    @apply flex-grow border border-gray-200 rounded-full py-1 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary;
+  }
+
+  .inline-reply-form button {
+    @apply text-xs bg-primary text-white py-1 px-3 rounded-full hover:bg-primary-dark transition-colors;
   }
 
   .delete-comment {
@@ -805,11 +865,23 @@
   }
 
   .profile-image-container {
-    @apply mb-6 flex justify-center;
+    @apply mb-6 flex justify-center relative;
   }
 
   .profile-image {
     @apply w-32 h-32 rounded-full object-cover border-4 border-white shadow-md;
+  }
+
+  .image-upload-controls {
+    @apply mt-3 flex flex-col items-center gap-2;
+  }
+
+  .upload-image-btn {
+    @apply flex items-center px-3 py-1.5 bg-primary text-white rounded-md text-sm hover:bg-primary-dark transition-colors;
+  }
+
+  .remove-image-btn {
+    @apply text-sm text-red-600 hover:text-red-800 hover:underline;
   }
 
   .sidebar-nav {
@@ -908,15 +980,31 @@
   }
 
   /* Custom Slick Slider Styles */
+  .carousel-container {
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+
   .slick-prev, .slick-next {
-    @apply z-20 w-12 h-12 bg-white/50 backdrop-blur-sm rounded-full flex items-center justify-center text-primary transition-all before:content-none shadow-lg hover:shadow-xl;
+    @apply z-20 w-12 h-12 bg-white/50 backdrop-blur-sm rounded-full flex items-center justify-center text-primary before:content-none shadow-lg;
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
+    will-change: auto;
+    backface-visibility: hidden;
+    pointer-events: all;
   }
 
   .slick-prev:hover, .slick-next:hover {
-    @apply bg-white/80 scale-110;
+    @apply bg-white/80;
+  }
+
+  .slick-prev:active, .slick-next:active {
+    @apply bg-white/70;
   }
 
   .slick-prev {
@@ -931,16 +1019,39 @@
     @apply hidden;
   }
 
+  /* Fix for jumping carousel */
+  .slick-slider {
+    touch-action: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+    overflow: hidden;
+  }
+
+  .slick-list {
+    overflow: hidden;
+    transform: translate3d(0, 0, 0);
+  }
+
   .slick-track {
     @apply flex items-stretch;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
   }
 
   .slick-slide {
     @apply h-auto;
+    transform: translate3d(0, 0, 0);
+    pointer-events: none;
   }
 
   .slick-slide > div {
     @apply h-full;
+    pointer-events: auto;
   }
 
   .custom-dots {
@@ -1066,6 +1177,19 @@
     .slick-prev, .slick-next {
       @apply w-14 h-14;
     }
+  }
+
+  /* Updated CSS for nested comments */
+  .comment-replies {
+    @apply mt-4 pl-10 w-full;
+  }
+
+  .comment-reply {
+    @apply ml-0 border-gray-100 mt-3 mb-2 bg-gray-50/60;
+  }
+
+  .inline-reply-form {
+    @apply mt-2 pl-10 mb-3 flex items-center gap-2 pt-1;
   }
 }
 

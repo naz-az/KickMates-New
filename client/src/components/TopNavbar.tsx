@@ -1,6 +1,7 @@
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { getUnreadCount } from '../services/api';
 
 interface TopNavbarProps {
   sidebarCollapsed: boolean;
@@ -13,6 +14,7 @@ interface User {
   name?: string;
   email: string;
   avatar?: string;
+  profile_image?: string;
 }
 
 const TopNavbar = ({ sidebarCollapsed, toggleSidebar }: TopNavbarProps) => {
@@ -20,6 +22,30 @@ const TopNavbar = ({ sidebarCollapsed, toggleSidebar }: TopNavbarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+  
+  // Fetch unread notification count
+  useEffect(() => {
+    const fetchNotificationCount = async () => {
+      // Only try to fetch notifications if user is logged in
+      if (!user) return;
+      
+      try {
+        const response = await getUnreadCount();
+        setNotificationCount(response.data.count);
+      } catch (error) {
+        console.error('Failed to fetch notification count:', error);
+        // Don't set notification count if there's an error
+      }
+    };
+
+    fetchNotificationCount();
+    
+    // Set up an interval to periodically check for new notifications
+    const intervalId = setInterval(fetchNotificationCount, 60000); // every minute
+    
+    return () => clearInterval(intervalId);
+  }, [user]); // Add user as dependency to re-run when login state changes
   
   // Get the page title based on the current route
   const getPageTitle = () => {
@@ -30,15 +56,13 @@ const TopNavbar = ({ sidebarCollapsed, toggleSidebar }: TopNavbarProps) => {
     if (path.startsWith('/events')) return 'Events';
     if (path === '/dashboard') return 'Dashboard';
     if (path === '/messages') return 'Messages';
+    if (path === '/notifications') return 'Notifications';
     if (path === '/profile') return 'Profile';
     if (path === '/settings') return 'Settings';
     
     // Default title
     return 'KickMates';
   };
-  
-  // Mock notification count - in a real app would come from API
-  const notificationCount = 3;
   
   // Toggle profile dropdown menu
   const toggleProfileMenu = () => {
@@ -65,11 +89,11 @@ const TopNavbar = ({ sidebarCollapsed, toggleSidebar }: TopNavbarProps) => {
         >
           {sidebarCollapsed ? (
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           ) : (
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           )}
         </button>
@@ -77,20 +101,22 @@ const TopNavbar = ({ sidebarCollapsed, toggleSidebar }: TopNavbarProps) => {
       </div>
       
       <div className="navbar-actions">
-        <button className="notification-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-          {notificationCount > 0 && (
-            <span className="notification-badge">{notificationCount}</span>
-          )}
-        </button>
+        {user && (
+          <Link to="/notifications" className="notification-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {notificationCount > 0 && (
+              <span className="notification-badge">{notificationCount}</span>
+            )}
+          </Link>
+        )}
         
         <div className="relative">
           <button className="profile-button" onClick={toggleProfileMenu}>
             <img 
-              src={(user as User)?.avatar || defaultAvatar} 
-              alt={(user as User)?.name || 'User'} 
+              src={(user as User)?.avatar || (user as User)?.profile_image || defaultAvatar} 
+              alt={(user as User)?.name || (user as User)?.username || 'User'} 
               className="profile-avatar"
             />
             <span className="hidden sm:inline-block">{(user as User)?.name || (user as User)?.username || 'User'}</span>
@@ -101,19 +127,41 @@ const TopNavbar = ({ sidebarCollapsed, toggleSidebar }: TopNavbarProps) => {
           
           {profileMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-50 py-1 border border-gray-200">
-              <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setProfileMenuOpen(false)}>
-                Your Profile
-              </Link>
-              <Link to="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setProfileMenuOpen(false)}>
-                Settings
-              </Link>
-              <div className="border-t border-gray-100 my-1"></div>
-              <button 
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                onClick={handleLogout}
-              >
-                Sign out
-              </button>
+              {user && (
+                <>
+                  <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setProfileMenuOpen(false)}>
+                    Your Profile
+                  </Link>
+                  <Link to="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setProfileMenuOpen(false)}>
+                    Settings
+                  </Link>
+                  <Link to="/notifications" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setProfileMenuOpen(false)}>
+                    Notifications
+                    {notificationCount > 0 && (
+                      <span className="ml-2 inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-white text-xs">
+                        {notificationCount}
+                      </span>
+                    )}
+                  </Link>
+                  <div className="border-t border-gray-100 my-1"></div>
+                  <button 
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={handleLogout}
+                  >
+                    Sign out
+                  </button>
+                </>
+              )}
+              {!user && (
+                <>
+                  <Link to="/login" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setProfileMenuOpen(false)}>
+                    Log In
+                  </Link>
+                  <Link to="/register" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setProfileMenuOpen(false)}>
+                    Register
+                  </Link>
+                </>
+              )}
             </div>
           )}
         </div>

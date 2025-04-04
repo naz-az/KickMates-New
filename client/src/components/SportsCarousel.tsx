@@ -10,7 +10,7 @@ const sportsData = [
     id: 1,
     name: 'Football',
     description: 'Join local matches and improve your skills with fellow football enthusiasts.',
-    image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1589487391730-58f20eb2c308?q=80&w=2074&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     // color: 'from-green-500 to-teal-600',
     // icon: '⚽'
   },
@@ -18,7 +18,7 @@ const sportsData = [
     id: 2,
     name: 'Basketball',
     description: 'Find pickup games and tournaments in your neighborhood courts.',
-    image: 'https://images.unsplash.com/photo-1546519638-68e109acd27d?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1519861531473-9200262188bf?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     // color: 'from-orange-500 to-red-600',
     // icon: '🏀'
   },
@@ -26,7 +26,7 @@ const sportsData = [
     id: 3,
     name: 'Tennis',
     description: 'Connect with tennis players of all skill levels for friendly matches.',
-    image: 'image.png',
+    image: 'https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     // color: 'from-yellow-400 to-amber-600',
     // icon: '🎾'
   },
@@ -34,7 +34,7 @@ const sportsData = [
     id: 4,
     name: 'Yoga',
     description: 'Join outdoor yoga sessions and connect with like-minded wellness enthusiasts.',
-    image: 'https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1510894347713-fc3ed6fdf539?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     // color: 'from-purple-400 to-indigo-600',
     // icon: '🧘'
   },
@@ -42,7 +42,7 @@ const sportsData = [
     id: 5,
     name: 'Running',
     description: 'Find running buddies and join local running groups for motivation.',
-    image: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1486218119243-13883505764c?q=80&w=2072&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     // color: 'from-blue-400 to-sky-600',
     // icon: '🏃'
   },
@@ -50,7 +50,7 @@ const sportsData = [
     id: 6,
     name: 'Swimming',
     description: 'Meet fellow swimmers and join pool sessions for fitness and fun.',
-    image: 'https://images.unsplash.com/photo-1560090995-01632a28895b?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1622629797619-c100e3e67e2e?q=80&w=1931&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     // color: 'from-cyan-400 to-blue-600',
     // icon: '🏊'
   }
@@ -118,14 +118,13 @@ const SportsCarousel = () => {
   }, [loading, isPaused, startProgressAnimation]);
   
   // Custom arrow components
-  const PrevArrow = (props: any) => {
-    const { onClick, className } = props;
+  const PrevArrow = (props: {className?: string}) => {
+    const { className } = props;
     
     const handleClick = (e: React.MouseEvent) => {
-      e.preventDefault();
-      if (onClick) {
-        onClick(e);
-        startProgressAnimation();
+      e.stopPropagation();
+      if (sliderRef.current) {
+        sliderRef.current.slickPrev();
       }
     };
     
@@ -143,14 +142,13 @@ const SportsCarousel = () => {
     );
   };
 
-  const NextArrow = (props: any) => {
-    const { onClick, className } = props;
+  const NextArrow = (props: {className?: string}) => {
+    const { className } = props;
     
     const handleClick = (e: React.MouseEvent) => {
-      e.preventDefault();
-      if (onClick) {
-        onClick(e);
-        startProgressAnimation();
+      e.stopPropagation();
+      if (sliderRef.current) {
+        sliderRef.current.slickNext();
       }
     };
     
@@ -188,7 +186,7 @@ const SportsCarousel = () => {
   const settings = {
     dots: true,
     infinite: true,
-    speed: 800,
+    speed: 500,
     slidesToShow: 1,
     slidesToScroll: 1,
     autoplay: !isPaused,
@@ -197,11 +195,15 @@ const SportsCarousel = () => {
     prevArrow: <PrevArrow />,
     nextArrow: <NextArrow />,
     beforeChange: handleSlideChange,
-    fade: true,
-    cssEase: 'cubic-bezier(0.7, 0, 0.3, 1)',
+    fade: false,
+    cssEase: 'linear',
     arrows: true,
-    draggable: true,
-    swipe: true,
+    draggable: false,
+    swipe: false,
+    adaptiveHeight: false,
+    useCSS: true,
+    useTransform: false,
+    waitForAnimate: true,
     customPaging: (i: number) => (
       <div
         className={`w-3 h-3 mx-1 rounded-full transition-all duration-300 ${
@@ -266,63 +268,65 @@ const SportsCarousel = () => {
             </button>
             
             {/* Slider */}
-            <Slider ref={sliderRef} {...settings}>
-              {sportsData.map((sport: SportData) => (
-                <div key={sport.id} className="px-1 py-2">
-                  <div className="carousel-card-fullscreen">
-                    <div 
-                      className="relative h-[300px] md:h-[400px] lg:h-[480px] rounded-3xl overflow-hidden shadow-2xl"
-                    >
-                      {/* Background image with floating animation */}
+            <div className="carousel-container">
+              <Slider ref={sliderRef} {...settings}>
+                {sportsData.map((sport: SportData) => (
+                  <div key={sport.id}>
+                    <div className="carousel-card-fullscreen">
                       <div 
-                        className="absolute inset-0 bg-cover bg-center transition-transform duration-10000 animate-ken-burns" 
-                        style={{ backgroundImage: `url(${sport.image})` }}
-                      />
-                      <div className={`absolute inset-0 opacity-100 animate-pulse-subtle`}></div>
-                      
-                      {/* Floating particles */}
-                      <div className="absolute inset-0 overflow-hidden">
-                        <div className="particle particle-1"></div>
-                        <div className="particle particle-2"></div>
-                        <div className="particle particle-3"></div>
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="absolute inset-0 p-8 md:p-12 lg:p-16 flex flex-col justify-end text-white">
-                        <div className="animate-slide-up max-w-2xl">
-                          <h3 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 drop-shadow-lg" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>{sport.name}</h3>
-                          <p className="text-white/90 text-lg md:text-xl lg:text-2xl max-w-xl mb-6 drop-shadow-md">{sport.description}</p>
-                          
-                          <div className="flex flex-wrap gap-3 mb-8">
-                            <span className="inline-block px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white font-medium">
-                              {Math.floor(Math.random() * 20) + 5} Events
-                            </span>
-                            <span className="inline-block px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white font-medium">
-                              {Math.floor(Math.random() * 100) + 10} Players
-                            </span>
-                          </div>
-                          
-                          <div className="flex flex-wrap gap-4">
-                            <Link 
-                              to="/events" 
-                              className="px-6 py-3 md:px-8 md:py-4 bg-white text-primary font-bold rounded-full hover:bg-white/90 transition-all duration-300 hover:scale-105 shadow-lg"
-                            >
-                              Explore {sport.name}
-                            </Link>
-                            <Link 
-                              to="/events/create" 
-                              className="px-6 py-3 md:px-8 md:py-4 bg-white/30 backdrop-blur-md text-white font-bold rounded-full hover:bg-white/40 transition-all duration-300 hover:scale-105"
-                            >
-                              Host an Event
-                            </Link>
+                        className="relative h-[300px] md:h-[400px] lg:h-[480px] rounded-3xl overflow-hidden shadow-2xl"
+                      >
+                        {/* Background image with floating animation */}
+                        <div 
+                          className="absolute inset-0 bg-cover bg-center transition-transform duration-10000 animate-ken-burns" 
+                          style={{ backgroundImage: `url(${sport.image})` }}
+                        />
+                        <div className={`absolute inset-0 opacity-100 animate-pulse-subtle`}></div>
+                        
+                        {/* Floating particles */}
+                        <div className="absolute inset-0 overflow-hidden">
+                          <div className="particle particle-1"></div>
+                          <div className="particle particle-2"></div>
+                          <div className="particle particle-3"></div>
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16 text-white">
+                          <div className="animate-slide-up max-w-2xl">
+                            <h3 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 drop-shadow-lg" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>{sport.name}</h3>
+                            <p className="text-white/90 text-lg md:text-xl lg:text-2xl max-w-xl mb-6 drop-shadow-md">{sport.description}</p>
+                            
+                            <div className="flex flex-wrap gap-3 mb-8">
+                              <span className="inline-block px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white font-medium">
+                                {Math.floor(Math.random() * 20) + 5} Events
+                              </span>
+                              <span className="inline-block px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white font-medium">
+                                {Math.floor(Math.random() * 100) + 10} Players
+                              </span>
+                            </div>
+                            
+                            <div className="flex flex-wrap gap-4">
+                              <Link 
+                                to="/events" 
+                                className="px-6 py-3 md:px-8 md:py-4 bg-white text-primary font-bold rounded-full hover:bg-white/90 transition-all duration-300 hover:scale-105 shadow-lg"
+                              >
+                                Explore {sport.name}
+                              </Link>
+                              <Link 
+                                to="/events/create" 
+                                className="px-6 py-3 md:px-8 md:py-4 bg-white/30 backdrop-blur-md text-white font-bold rounded-full hover:bg-white/40 transition-all duration-300 hover:scale-105"
+                              >
+                                Host an Event
+                              </Link>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </Slider>
+                ))}
+              </Slider>
+            </div>
             
             {/* Counter */}
             <div className="absolute bottom-6 right-6 md:right-10 z-20 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-white font-medium">

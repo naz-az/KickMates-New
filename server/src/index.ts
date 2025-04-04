@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import morgan from 'morgan';
 import userRoutes from './routes/userRoutes';
 import eventRoutes from './routes/eventRoutes';
+import notificationRoutes from './routes/notificationRoutes';
+import messageRoutes from './routes/messageRoutes';
 import path from 'path';
 
 // Load environment variables
@@ -21,6 +23,8 @@ app.use(morgan('dev'));
 // API Routes
 app.use('/api/users', userRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
